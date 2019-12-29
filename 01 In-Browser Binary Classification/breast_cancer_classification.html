@@ -1,0 +1,73 @@
+<html>
+<head></head>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <script lang="js">
+        
+        // https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+(Diagnostic)
+        // Using clean dataset with 455 training samples and 114 testing samples
+        // Script expects training and testing data in the same directory
+        async function run(){
+            const trainingUrl = 'wdbc-train.csv';
+            
+            // Specify the column used as label
+            const trainingData = tf.data.csv(trainingUrl, {
+                columnConfigs: {
+                    diagnosis: {
+                        isLabel: true
+                    }
+                }
+            });
+            
+            // Convert training data into arrays
+            const convertedTrainingData =
+                  trainingData.map(({xs, ys}) => {
+                      return{xs: Object.values(xs), ys: Object.values(ys)};
+                  }).batch(10);
+                  
+            const testingUrl = 'wdbc-test.csv';
+            
+            // Specify the column used as label
+            const testingData = tf.data.csv(testingUrl, {
+                columnConfigs: {
+                    diagnosis: {
+                        isLabel: true
+                    }
+                }
+                
+            });
+            
+            // Convert testing data into arrays
+            const convertedTestingData =
+                  testingData.map(({xs, ys}) => {
+                      return{xs: Object.values(xs), ys: Object.values(ys)};
+                  }).batch(10);
+            
+            // Specify the number of features
+            const numOfFeatures = (await trainingData.columnNames()).length - 1;
+               
+            // Output layer has a single output for predicting '1' (malignant) or '0' (benign)
+            const model = tf.sequential();
+            model.add(tf.layers.dense({inputShape: [numOfFeatures], activation: "relu", units: 16}));
+            model.add(tf.layers.dense({activation: "relu", units: 8}));
+            model.add(tf.layers.dense({activation: "sigmoid", units: 1}));
+            
+            // Compile the model 
+            model.compile({loss: "binaryCrossentropy", optimizer: "rmsprop", metrics: ["accuracy"]});
+            
+            await model.fitDataset(convertedTrainingData, 
+                             {epochs:100,
+                              validationData: convertedTestingData,
+                              callbacks:{
+                                  onEpochEnd: async(epoch, logs) =>{
+                                      console.log("Epoch: " + epoch + " Loss: " + logs.loss + " Accuracy: " + logs.acc);
+                                  }
+                              }});
+            
+            // Save the model and weights
+            await model.save('downloads://my_model');
+        }
+        run();
+    </script>
+<body>
+</body>
+</html>
